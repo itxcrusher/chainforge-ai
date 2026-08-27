@@ -1,95 +1,123 @@
 # ChainForge
 
-**An archived prototype, published with its own post-mortem.**
+**Prompt-to-deploy on-chain campaign apps.**
 
-ChainForge turned a plain-English request into a deployed on-chain campaign: an AI planner selected among ten fixed contract templates, deterministic code normalized and validated the result, and server-held keys sponsored gas so users could act without paying.
+Describe a fan campaign in plain English. ChainForge plans it, picks a reviewed Solidity template, validates the configuration deterministically, deploys a clone, and sponsors the gas so participants can take part without holding native tokens or paying fees.
 
-It worked. It was live for months. Then I audited it as if a stranger had written it, found eight design failures, and shut it down instead of relaunching it.
+```text
+"Run a prediction on who wins the final, closing at 8pm, three options"
+   -> planner selects PredictionLogicV2
+   -> deterministic normalization and validation
+   -> EIP-1167 clone deployed from the factory
+   -> participants act through a relayer, gasless
+```
 
-The code is here so the failures are legible. **Do not deploy it.** See [SECURITY.md](SECURITY.md).
+> **Archived.** This project is no longer developed or deployed, and it carries known design failures documented under [Known design failures](#known-design-failures). Read it, do not run it against anything of value.
 
-## What the README used to claim, and what the code enforced
+## What it does
 
-This repository exists because those two things were not the same.
+A campaign is a small on-chain app with a lifecycle: it opens, people take part, the creator closes it, and the result is finalized on chain. ChainForge generates one from a sentence.
 
-| The old claim | What the code actually did |
+| Surface | Purpose |
 |---|---|
-| "AI builds a dApp" | AI selected and configured one of ten prewritten templates. Deterministic code and fixed contracts did the deploying. |
-| "Gas-sponsored user actions" | True, but several contracts accepted a **caller-supplied** participant identity, so the API was the only real enforcement boundary. |
-| "Audited before deployment" | Compatibility and configuration checks ran. That is schema validation, not an adversarial security audit. |
+| `/builder` | Describe a campaign, review the generated plan, deploy it |
+| `/explore` | Browse deployed campaigns |
+| `/campaigns/[address]` | Take part in a live campaign |
+| `/manage/[address]` | Creator dashboard: close, finalize, reveal |
+| `/profile/[address]` | Participation history and reputation |
+| `/leaderboard` | Ranked participants |
+| `/proof` | Deployed contract addresses and explorer links |
+| `/ops` | Operational status |
 
-A narrower description would have been accurate and much easier to secure: *AI-assisted configuration of reviewed templates.*
+Eleven API routes back these, including `plan`, `deploy`, `relay`, `reveal`, and an `indexer`.
 
-## The eight design failures
+## The ten templates
 
-Found by static review at commit `5380abd`, in my own code:
+The planner never writes Solidity. It selects among ten reviewed implementations and returns a structured configuration for the chosen one. Anything it cannot match falls back to an explicit `unsupported` response rather than a guess.
 
-1. **Attribution boundary.** The factory accepted a creator address from its caller without binding it to `msg.sender`.
-2. **Participation boundary.** Participation methods took a user address while the signature check lived in the API and a relayer submitted the transaction.
-3. **Role concentration.** Campaign clones were initialized with the server's deployer wallet as owner. One key held sponsorship, custody, ownership, and lifecycle authority.
-4. **Lifecycle authorization scope.** Signed creator messages carried no nonce, expiry, chain, or domain version.
-5. **Raffle entropy.** Winner selection derived from recent block data, timestamp, and participant count.
-6. **Auction semantics.** Bids were declared numbers with no custody of the asset, and the creator could pick any registered bidder.
-7. **Reputation semantics.** A participant supplied a bounded weight that was added directly to their chosen option.
-8. **Index provenance.** Indexed campaigns stored a placeholder block number of `"0"`.
+| Template | Selected for |
+|---|---|
+| `PredictionLogicV2` | predicting an outcome, who will win, MVP |
+| `VotingLogicV2` | votes, favourites, ranking |
+| `SurveyLogic` | feedback, sentiment, best moment |
+| `QuizLogic` | trivia with a correct answer |
+| `RaffleLogic` | giveaways, lucky draws, single entry |
+| `BountyLogic` | a challenge where the creator picks a winning submission |
+| `AuctionLogic` | bidding and pledges |
+| `FanPassLogic` | tiered access passes and membership |
+| `PointsPoolLogic` | reputation-weighted prediction pools |
+| `TournamentLogic` | multi-round brackets with cumulative scoring |
 
-The through-line: **a check in the API is not an invariant in the contract.** Every one of these is a case where the enforcing boundary sat somewhere other than where the claim implied.
+Contracts follow a simple on-chain lifecycle, `OPEN -> CLOSED -> FINALIZED`, enforced by the implementation rather than the application.
 
-Full reconstruction, including the trust-boundary diagram and the reasoning behind each finding: **[README vs Reality](https://github.com/itxcrusher/readme-vs-reality)**.
+## How it works
 
-## The tests all pass. That is the uncomfortable part.
-
-`test/` contains 13 files with **262** `it(...)` and `test(...)` declarations. During the forensic review I refused to describe those as passing tests, because I had not run them. Counting declarations and reporting them as coverage is one of the easier ways to mislead yourself about a codebase, including your own.
-
-So I ran them:
-
+```text
+prompt
+  -> planner (lib/agents)        interprets intent, selects a template,
+                                 returns a strict structured plan
+  -> normalization (lib)         deterministic: fills defaults, coerces
+                                 types, rejects invalid configurations
+  -> deploy API                  EIP-1167 minimal-proxy clone from
+                                 CampaignFactory
+  -> relayer                     submits participant transactions so
+                                 users pay no gas
+  -> indexer + read models       campaign state, profiles, leaderboard
 ```
-262 passing (5m)
-```
 
-Verified on 2026-08-27 against the published tree: `npm ci && npx hardhat compile && npx hardhat test`. Twenty Solidity files compile clean, and every declaration is a real, passing test.
+The architecture idea worth keeping: **the model proposes, deterministic code decides.** Constraining a planner to a finite set of reviewed templates is far easier to inspect than treating generated code as trusted output.
 
-**And the eight design failures above were all present while those 262 tests passed.**
+## Running it
 
-That is the lesson worth taking. A green suite proves the code does what the tests say. It says nothing about whether the tests assert the right things. Every one of these tests checks behaviour inside the trust boundary the author already assumed; none of them asks whether that boundary is where the product's claims implied it was. You cannot test your way to a correct authorization model, because the missing assertion is the one you did not think to write.
-
-Reproduce it yourself:
+Requires a recent Node LTS and an EVM RPC endpoint. The project declares no `engines` range, so the exact minimum is untested.
 
 ```bash
 npm ci
-npx hardhat compile
-npx hardhat test
+npx hardhat compile          # 20 Solidity files
+npx hardhat test             # 262 tests
+npm run dev                  # Next.js app on :3000
 ```
 
-## What was genuinely good about it
+Configuration is in `.env.example`: an OpenAI key for the planner, RPC URL and chain id, deployer and relayer keys, the factory address, and Upstash Redis credentials for the cache. Copy it to `.env` and fill it in.
 
-Rejecting a system is only honest if you can say what worked.
-
-**The planner was constrained, not trusted.** It never synthesized arbitrary Solidity. It chose among ten known templates and returned a structured configuration that deterministic code then normalized and checked, with an explicit fallback for unsupported requests.
-
-That is the one idea worth carrying forward: **separate probabilistic interpretation from deterministic enforcement.** The model may propose; typed, testable code decides what is allowed. A finite capability schema is vastly easier to inspect than generated code you have chosen to trust.
-
-The test design also showed real intent to specify behaviour, and the integration work was complete rather than mocked: a full-stack app, a factory and template suite, API routes, relayer and deployer clients, event indexing, read models, and explorer links. The failure was never missing implementation. It was the gap between what the product said and what the boundaries enforced.
+Deployment scripts live in `scripts/`, including template deployment and registration against the factory.
 
 ## Layout
 
-```
-app/          Next.js routes, builder UI, campaign and management views
+```text
+app/          Next.js routes: builder, explore, campaign, manage, proof
 components/   Shared UI
-contracts/    Factory plus template implementations (Solidity)
-lib/          Planner agents, normalization, chain clients, read models
-scripts/      Deployment and utility scripts
+contracts/    CampaignFactory plus 12 template implementations
+lib/          Planner agents, normalization, chain clients, read models, cache
+scripts/      Deployment, registration, and diagnostic scripts
 test/         Hardhat contract tests
 ```
 
-Demo seed data uses fictional teams. The original demo was themed around a real sports league; that branding has been removed and nothing in the architecture depended on it.
+Demo seed data uses fictional teams.
+
+## Known design failures
+
+This is why the project is archived rather than maintained. A post-hoc review of the final commit found eight design failures, all of which are still present in this code:
+
+1. **Attribution boundary.** The factory accepts a creator address from its caller without binding it to `msg.sender`.
+2. **Participation boundary.** Participation methods take a user address while the signature check lives in the API and a relayer submits the transaction.
+3. **Role concentration.** Campaign clones are initialized with the server's deployer wallet as owner, so one key holds sponsorship, custody, ownership, and lifecycle authority.
+4. **Lifecycle authorization scope.** Signed creator messages carry no nonce, expiry, chain, or domain version.
+5. **Raffle entropy.** Winner selection derives from recent block data, timestamp, and participant count.
+6. **Auction semantics.** Bids are declared numbers with no custody of the asset, and the creator may pick any registered bidder.
+7. **Reputation semantics.** A participant supplies a bounded weight that is added directly to their chosen option.
+8. **Index provenance.** Indexed campaigns store a placeholder block number of `"0"`.
+
+The common thread: **a check in the API is not an invariant in the contract.** All 262 tests pass with every one of these present, because each test verifies behaviour inside the trust boundary the author already assumed.
+
+Full reconstruction, including the trust-boundary diagram and the reasoning behind each finding, is in **[README vs Reality](https://github.com/itxcrusher/readme-vs-reality)**. The authorization lessons were rebuilt properly in **[spendlock](https://github.com/itxcrusher/spendlock)**.
 
 ## Status
 
-**Not maintained.** This is a portfolio artifact, published to be read rather than run or extended. Issues and discussions are disabled. There is no roadmap, no support, and no plan to fix the failures listed above; fixing them is what the analysis argues against, because the correct successor boundary was reasoning before code rather than faster deployment.
+**Not maintained.** Published as a portfolio artifact, to be read rather than run or extended. Issues and discussions are disabled, there is no roadmap, and the failures above will not be fixed.
 
-The hosted deployment was decommissioned in August 2026, before this analysis was published.
+The hosted deployment was decommissioned in August 2026. See [SECURITY.md](SECURITY.md).
 
 ## License
 
-[MIT](LICENSE). The code is free to read, learn from, and reuse. The design failures above travel with it, so reuse the ideas rather than the authorization model.
+[MIT](LICENSE). Free to read, learn from, and reuse. The design failures travel with the code, so reuse the architecture idea rather than the authorization model.
