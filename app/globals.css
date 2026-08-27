@@ -1,0 +1,203 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 84px;
+    background: #070c14;
+  }
+
+  body {
+    background:
+      radial-gradient(circle at 12% 12%, rgba(236, 72, 153, 0.14), transparent 24%),
+      radial-gradient(circle at 82% 10%, rgba(251, 146, 60, 0.14), transparent 22%),
+      radial-gradient(circle at 50% 22%, rgba(139, 92, 246, 0.14), transparent 32%),
+      linear-gradient(180deg, #120a2d 0%, #090d17 34%, #070c14 100%);
+    background-attachment: fixed;
+  }
+
+  ::-webkit-scrollbar {
+    width: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #070c14;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #1e2a40;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #6366f1;
+  }
+}
+
+@layer utilities {
+  /* Subtle dot grid background */
+  .bg-grid {
+    background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  /* Radial hero glow — indigo/violet at top-center */
+  .hero-glow {
+    background: radial-gradient(
+      ellipse 90% 50% at 50% -5%,
+      rgba(99, 102, 241, 0.18) 0%,
+      rgba(139, 92, 246, 0.08) 40%,
+      transparent 70%
+    );
+  }
+
+  /* Gradient text utility */
+  .gradient-text {
+    background: linear-gradient(135deg, #c4b5fd 0%, #f9a8d4 45%, #fdba74 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Indigo gradient text — for accent words */
+  .gradient-text-indigo {
+    background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Glass card */
+  .glass {
+    background: rgba(255, 255, 255, 0.03);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  .glass-hover {
+    transition: background 0.2s, border-color 0.2s;
+  }
+
+  .glass-hover:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(99, 102, 241, 0.3);
+  }
+
+  /* Glow border on hover */
+  .glow-indigo {
+    box-shadow: 0 0 24px rgba(99, 102, 241, 0.15);
+  }
+
+  /* Shimmer animation for skeleton loading */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.03) 25%,
+      rgba(255, 255, 255, 0.08) 50%,
+      rgba(255, 255, 255, 0.03) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* Fade-in-up */
+  .animate-fade-up {
+    animation: fadeUp 0.5s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .motion-surface {
+    animation: surfaceIn 0.58s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .motion-surface > * {
+    animation: contentRise 0.54s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .motion-surface > *:nth-child(2) { animation-delay: 70ms; }
+  .motion-surface > *:nth-child(3) { animation-delay: 110ms; }
+  .motion-surface > *:nth-child(4) { animation-delay: 145ms; }
+  .motion-surface > *:nth-child(5) { animation-delay: 170ms; }
+
+  @keyframes surfaceIn {
+    from { opacity: 0; transform: translateY(10px) scale(0.992); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  @keyframes contentRise {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes ambientDrift {
+    0% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(18px, -12px, 0) scale(1.035); }
+    100% { transform: translate3d(0, 0, 0) scale(1); }
+  }
+
+  @keyframes gridDrift {
+    from { background-position: 0 0, 0 0; }
+    to { background-position: 28px 28px, 28px 28px; }
+  }
+}
+
+@layer components {
+  .app-shell {
+    position: relative;
+    isolation: isolate;
+    background: transparent;
+  }
+
+  .app-shell::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    background:
+      radial-gradient(circle at 14% 10%, rgba(249, 168, 212, 0.10), transparent 20%),
+      radial-gradient(circle at 82% 8%, rgba(253, 186, 116, 0.10), transparent 18%),
+      radial-gradient(circle at 52% 18%, rgba(196, 181, 253, 0.08), transparent 26%),
+      radial-gradient(circle at 18% 56%, transparent 0 48px, rgba(249, 168, 212, 0.06) 49px 50px, transparent 51px),
+      radial-gradient(circle at 25% 63%, transparent 0 48px, rgba(253, 186, 116, 0.05) 49px 50px, transparent 51px),
+      radial-gradient(circle at 78% 68%, transparent 0 54px, rgba(196, 181, 253, 0.06) 55px 56px, transparent 57px),
+      radial-gradient(circle at 85% 76%, transparent 0 54px, rgba(249, 168, 212, 0.05) 55px 56px, transparent 57px);
+    opacity: 0.95;
+    animation: ambientDrift 18s ease-in-out infinite;
+    will-change: transform;
+  }
+
+  .app-shell::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent 88%);
+    opacity: 0.24;
+    animation: gridDrift 32s linear infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
